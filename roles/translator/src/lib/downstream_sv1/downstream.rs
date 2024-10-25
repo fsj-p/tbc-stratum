@@ -18,6 +18,7 @@ use tokio::sync::broadcast;
 use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOUT_SECS};
 
 use roles_logic_sv2::{
+    job_creator::extended_job_set_version_rolling,
     common_properties::{IsDownstream, IsMiningDownstream},
     utils::Mutex,
 };
@@ -34,7 +35,6 @@ use v1::{
     utils::{Extranonce, HexU32Be},
     IsServer,
 };
-
 const MAX_LINE_LENGTH: usize = 2_usize.pow(16);
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically
@@ -44,7 +44,7 @@ pub struct Downstream {
     /// List of authorized Downstream Mining Devices.
     pub(super) connection_id: u32,
     authorized_names: Vec<String>,
-    extranonce1: Vec<u8>,
+    pub extranonce1: Vec<u8>,
     /// `extranonce1` to be sent to the Downstream in the SV1 `mining.subscribe` message response.
     //extranonce1: Vec<u8>,
     //extranonce2_size: usize,
@@ -287,6 +287,12 @@ impl Downstream {
                     // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
                     select! {
                         res = rx_sv1_notify.recv().fuse() => {
+                            let extranonce1 = self_
+                                .safe_lock(|s| s.extranonce1.clone())
+                                .unwrap();
+                            // let res = extended_job_set_version_rolling(res, extranonce1)
+                            //     .expect("failed to convert extended job set version rolling");
+                            
                             // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
                             handle_result!(tx_status_notify, Self::try_update_difficulty_settings(downstream.clone()).await);
 
@@ -530,11 +536,7 @@ impl IsServer<'static> for Downstream {
         &mut self,
         _extranonce1: Option<Extranonce<'static>>,
     ) -> Extranonce<'static> {
-        //TODO fsj Must be modified
-        info!("proxy call set_extranonce1:{:?}",self.extranonce1);
-        let tmp = Vec::new();
-        //self.extranonce1.clone().try_into().unwrap()
-        tmp.clone().try_into().unwrap()
+        self.extranonce1.clone().try_into().unwrap()
     }
 
     /// Returns the `Downstream`'s `extranonce1` value.

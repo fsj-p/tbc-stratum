@@ -501,19 +501,13 @@ impl Pool {
             let downstreams = handle_result!(status_tx, downstreams);
 
             for (channel_id, downtream) in downstreams {
-                let tmp = 2;
-                if let Some(to_send) = messages.remove(&tmp) {
-                    info!("be call match_send_to");
+                if let Some(to_send) = messages.remove(&channel_id) {
                     if let Err(e) =
                         Downstream::match_send_to(downtream.clone(), Ok(SendTo::Respond(to_send)))
                             .await
                     {
                         error!("Unknown template provider message: {:?}", e);
                     }
-                }
-                else {
-                    info!("messages.remove(&channel_id) err.channel_id:{:?} messages:{:?} ", channel_id, messages);
-                    info!("downtream:{:?}",downtream);
                 }
             }
             let res = self_
@@ -545,9 +539,6 @@ impl Pool {
         let ids = Arc::new(Mutex::new(roles_logic_sv2::utils::GroupId::new()));
         let pool_coinbase_outputs = get_coinbase_output(&config);
         info!("PUB KEY: {:?}", pool_coinbase_outputs);
-        info!("range_0:{:?} range_0.start:{:?}", range_0, range_0.start);
-        info!("range_1:{:?} range_0.end:{:?} range_1.start:{:?}", range_1, range_0.end,range_1.start);
-        info!("range_2:{:?} range_1.end:{:?} range_2.start:{:?}", range_2, range_0.end,range_1.start);
         let extranonces = ExtendedExtranonce::new(range_0, range_1, range_2);
         let creator = JobsCreators::new(extranonce_len as u8);
         let share_per_min = 1.0;
@@ -678,7 +669,6 @@ impl Pool {
 #[cfg(test)]
 mod test {
     use binary_sv2::{B0255, B064K};
-    use tracing::info;
     use std::convert::TryInto;
 
     use stratum_common::{

@@ -340,7 +340,15 @@ impl Bridge {
             if job.job_id == sv2_set_new_prev_hash.job_id {
                 let j_id = job.job_id;
                 // Create the mining.notify to be sent to the Downstream.
+                let extranonce_prefix = self_
+                    .safe_lock(|s| {
+                        s.channel_factory
+                            .get_channel_specific_extended(&job.channel_id)
+                    })
+                    .map_err(|_| PoisonLock)?
+                    .expect("Failed to get channel-specific extended extranonce");
                 let notify = crate::proxy::next_mining_notify::create_notify(
+                    extranonce_prefix.to_vec(),
                     sv2_set_new_prev_hash.clone(),
                     job,
                     true,
@@ -438,7 +446,15 @@ impl Bridge {
             let j_id = sv2_new_extended_mining_job.job_id;
             // Create the mining.notify to be sent to the Downstream.
             // clean_jobs must be false because it's not a NewPrevHash template
+            let extranonce_prefix = self_
+                .safe_lock(|s| {
+                    s.channel_factory
+                        .get_channel_specific_extended(&sv2_new_extended_mining_job.channel_id)
+                })
+                .map_err(|_| PoisonLock)?
+                .expect("Failed to get channel-specific extended extranonce");
             let notify = crate::proxy::next_mining_notify::create_notify(
+                extranonce_prefix.to_vec(),
                 last_p_hash,
                 sv2_new_extended_mining_job.clone(),
                 false,

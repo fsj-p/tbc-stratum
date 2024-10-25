@@ -173,11 +173,6 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
     extranonce: &[u8],
     path: &[T],
 ) -> Option<Vec<u8>> {
-    // let mut coinbase =
-    //     Vec::with_capacity(coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + extranonce.len());
-    // coinbase.extend_from_slice(coinbase_tx_prefix);
-    // coinbase.extend_from_slice(extranonce);
-    // coinbase.extend_from_slice(coinbase_tx_suffix);
     let coinbase = splicing_coinbase_vec(coinbase_tx_prefix, coinbase_tx_suffix, extranonce);
     let coinbase = match coinbase {
         Some(vec) => vec,
@@ -186,6 +181,7 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
             return None;
         }
     };
+    info!("merkle_root_from_path coinbase:{:?}",coinbase);
     let coinbase = match Transaction::deserialize(&coinbase[..]) {
         Ok(trans) => trans,
         Err(e) => {
@@ -718,7 +714,6 @@ pub fn get_target(
     .unwrap()
     .try_into()
     .unwrap();
-    info!("code call merkle_root_from_path line:{:?} end ",line!());
     let merkle_root = Hash::from_inner(merkle_root);
     let merkle_root = TxMerkleNode::from_hash(merkle_root);
     // TODO  how should version be transoformed from u32 into i32???
@@ -742,11 +737,9 @@ pub fn hash_lists_tuple(
     tx_short_hash_nonce: u64,
 ) -> (Seq064K<'static, ShortTxId<'static>>, U256<'static>) {
     let mut txid_list: Vec<bitcoin::Txid> = Vec::new();
-    info!("call txid line:{:?}",line!());
     for tx in tx_data {
         txid_list.push(tx.txid());
     }
-    info!("call txid line:{:?} end",line!());
     let mut tx_short_hash_list_: Vec<ShortTxId> = Vec::new();
     for txid in txid_list.clone() {
         tx_short_hash_list_.push(get_short_hash(txid, tx_short_hash_nonce));
@@ -814,17 +807,14 @@ impl<'a> From<BlockCreator<'a>> for bitcoin::Block {
         let extranonce = message.extranonce.to_vec();
         let coinbase_suf = last_declare.coinbase_suffix.to_vec();
         let mut path: Vec<Vec<u8>> = vec![];
-        info!("call txid line:{:?}",line!());
         for tx in &tx_list {
             let id = tx.txid();
             let id = id.as_ref().to_vec();
             path.push(id);
         }
-        info!("call txid line:{:?} end",line!());
         let merkle_root =
             merkle_root_from_path(&coinbase_pre[..], &coinbase_suf[..], &extranonce[..], &path)
                 .expect("Invalid coinbase");
-        info!("code call merkle_root_from_path line:{:?} end ",line!());
         let merkle_root = Hash::from_inner(merkle_root.try_into().unwrap());
 
         let prev_blockhash = u256_to_block_hash(message.prev_hash.into_static());

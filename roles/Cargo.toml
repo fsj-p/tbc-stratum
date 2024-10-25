@@ -17,13 +17,10 @@ keywords = ["stratum", "mining", "bitcoin", "protocol"]
 resolver="2"
 
 members = [
-    "mining-proxy",
     "pool",
     "test-utils/mining-device",
     "test-utils/sv1-mining-device",
     "translator",
-    "jd-client",
-    "jd-server",
 ]
 
 [profile.dev]

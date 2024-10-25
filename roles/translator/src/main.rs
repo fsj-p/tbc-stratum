@@ -21,8 +21,7 @@ use v1::server_to_client;
 
 use crate::status::{State, Status};
 use tracing::{debug, error, info};
-
-/// 处理命令行参数，如果有的话。
+/// Process CLI args, if any.
 #[allow(clippy::result_large_err)]
 fn process_cli_args<'a>() -> ProxyResult<'a, ProxyConfig> {
     let args = match Args::from_args() {
@@ -48,43 +47,46 @@ async fn main() {
 
     let (tx_status, rx_status) = unbounded();
 
-    // `tx_sv1_bridge` 发送者用于 `Downstream` 通过 `rx_sv1_downstream` 接收器发送 `DownstreamMessages` 消息给 `Bridge`
+    // `tx_sv1_bridge` sender is used by `Downstream` to send a `DownstreamMessages` message to
+    // `Bridge` via the `rx_sv1_downstream` receiver
     // (Sender<downstream_sv1::DownstreamMessages>, Receiver<downstream_sv1::DownstreamMessages>)
     let (tx_sv1_bridge, rx_sv1_downstream) = unbounded();
 
-    // 发送者/接收者用于从 `Bridge` 向 `Upstream` 发送 SV2 `SubmitSharesExtended` 消息
+    // Sender/Receiver to send a SV2 `SubmitSharesExtended` from the `Bridge` to the `Upstream`
     // (Sender<SubmitSharesExtended<'static>>, Receiver<SubmitSharesExtended<'static>>)
     let (tx_sv2_submit_shares_ext, rx_sv2_submit_shares_ext) = bounded(10);
 
-    // 发送者/接收者用于从 `Upstream` 向 `Bridge` 发送 SV2 `SetNewPrevHash` 消息
+    // Sender/Receiver to send a SV2 `SetNewPrevHash` message from the `Upstream` to the `Bridge`
     // (Sender<SetNewPrevHash<'static>>, Receiver<SetNewPrevHash<'static>>)
     let (tx_sv2_set_new_prev_hash, rx_sv2_set_new_prev_hash) = bounded(10);
 
-    // 发送者/接收者用于从 `Upstream` 向 `Bridge` 发送 SV2 `NewExtendedMiningJob` 消息
+    // Sender/Receiver to send a SV2 `NewExtendedMiningJob` message from the `Upstream` to the
+    // `Bridge`
     // (Sender<NewExtendedMiningJob<'static>>, Receiver<NewExtendedMiningJob<'static>>)
     let (tx_sv2_new_ext_mining_job, rx_sv2_new_ext_mining_job) = bounded(10);
 
-    // 发送者/接收者用于从 `Upstream` 向该 `main` 函数发送新额外随机数，在下游角色连接时传递给 `Downstream`
+    // Sender/Receiver to send a new extranonce from the `Upstream` to this `main` function to be
+    // passed to the `Downstream` upon a Downstream role connection
     // (Sender<ExtendedExtranonce>, Receiver<ExtendedExtranonce>)
     let (tx_sv2_extranonce, rx_sv2_extranonce) = bounded(1);
     let target = Arc::new(Mutex::new(vec![0; 32]));
 
-    // 发送者/接收者用于从 `Bridge` 向 `Downstream` 发送 SV1 `mining.notify` 消息
+    // Sender/Receiver to send SV1 `mining.notify` message from the `Bridge` to the `Downstream`
     let (tx_sv1_notify, _rx_sv1_notify): (
         broadcast::Sender<server_to_client::Notify>,
         broadcast::Receiver<server_to_client::Notify>,
     ) = broadcast::channel(10);
 
-    // 格式化 `Upstream` 连接地址
+    // Format `Upstream` connection address
     let upstream_addr = SocketAddr::new(
         IpAddr::from_str(&proxy_config.upstream_address)
-            .expect("解析上游地址失败！"),
+            .expect("Failed to parse upstream address!"),
         proxy_config.upstream_port,
     );
 
     let diff_config = Arc::new(Mutex::new(proxy_config.upstream_difficulty_config.clone()));
 
-    // 实例化一个新的 `Upstream`（SV2 池）
+    // Instantiate a new `Upstream` (SV2 Pool)
     let upstream = match upstream_sv2::Upstream::new(
         upstream_addr,
         proxy_config.upstream_authority_pubkey,
@@ -101,14 +103,17 @@ async fn main() {
     {
         Ok(upstream) => upstream,
         Err(e) => {
-            error!("创建上游失败: {}", e);
+            error!("Failed to create upstream: {}", e);
             return;
         }
     };
 
-    // 生成一个任务来执行所有这些初始化工作，以便主线程可以监听状态通道上的信号和故障。这允许 tproxy 在任何这些初始化任务失败时优雅地退出
+    // Spawn a task to do all of this init work so that the main thread
+    // can listen for signals and failures on the status channel. This
+    // allows for the tproxy to fail gracefully if any of these init tasks
+    //fail
     task::spawn(async move {
-        // 连接到 SV2 上游角色
+        // Connect to the SV2 Upstream role
         match upstream_sv2::Upstream::connect(
             upstream.clone(),
             proxy_config.min_supported_version,
@@ -116,29 +121,29 @@ async fn main() {
         )
         .await
         {
-            Ok(_) => info!("已连接到上游！"),
+            Ok(_) => info!("Connected to Upstream!"),
             Err(e) => {
-                error!("连接上游失败，正在退出！: {}", e);
+                error!("Failed to connect to Upstream EXITING! : {}", e);
                 return;
             }
         }
 
-        // 开始接收来自 SV2 上游角色的消息
+        // Start receiving messages from the SV2 Upstream role
         if let Err(e) = upstream_sv2::Upstream::parse_incoming(upstream.clone()) {
-            error!("创建 SV2 解析器失败: {}", e);
+            error!("failed to create sv2 parser: {}", e);
             return;
         }
 
-        debug!("完成启动上游监听器");
-        // 启动任务处理器，在 SV1 下游角色连接后接收提交
+        debug!("Finished starting upstream listener");
+        // Start task handler to receive submits from the SV1 Downstream role once it connects
         if let Err(e) = upstream_sv2::Upstream::handle_submit(upstream.clone()) {
-            error!("创建提交处理器失败: {}", e);
+            error!("Failed to create submit handler: {}", e);
             return;
         }
 
-        // 从上游角色接收扩展额外随机数信息，以便在下游角色连接后发送给下游角色，也用于初始化桥
+        // Receive the extranonce information from the Upstream role to send to the Downstream role
+        // once it connects also used to initialize the bridge
         let (extended_extranonce, up_id) = rx_sv2_extranonce.recv().await.unwrap();
-        info!("debug extended_extranonce:{:?}",extended_extranonce);
         loop {
             let target: [u8; 32] = target.safe_lock(|t| t.clone()).unwrap().try_into().unwrap();
             if target != [0; 32] {
@@ -147,8 +152,7 @@ async fn main() {
             async_std::task::sleep(std::time::Duration::from_millis(100)).await;
         }
 
-        info!("主进程上一个哈希:{:?}",rx_sv2_set_new_prev_hash);
-        // 实例化一个新的 `Bridge` 并开始处理传入的消息
+        // Instantiate a new `Bridge` and begins handling incoming messages
         let b = proxy::Bridge::new(
             rx_sv1_downstream,
             tx_sv2_submit_shares_ext,
@@ -162,13 +166,13 @@ async fn main() {
         );
         proxy::Bridge::start(b.clone());
 
-        // 格式化 `Downstream` 连接地址
+        // Format `Downstream` connection address
         let downstream_addr = SocketAddr::new(
             IpAddr::from_str(&proxy_config.downstream_address).unwrap(),
             proxy_config.downstream_port,
         );
 
-        // 接受来自一个或多个 SV1 下游角色（SV1 挖矿设备）的连接
+        // Accept connections from one or more SV1 Downstream roles (SV1 Mining Devices)
         downstream_sv1::Downstream::accept_connections(
             downstream_addr,
             tx_sv1_bridge,
@@ -178,24 +182,24 @@ async fn main() {
             proxy_config.downstream_difficulty_config,
             diff_config,
         );
-    }); // 初始化任务结束
+    }); // End of init task
 
-    debug!("启动信号监听器");
+    debug!("Starting up signal listener");
     let mut interrupt_signal_future = Box::pin(tokio::signal::ctrl_c().fuse());
-    debug!("启动状态监听器");
+    debug!("Starting up status listener");
 
-    // 检查所有任务是否 is_finished() 为 true，如果是，则退出
+    // Check all tasks if is_finished() is true, if so exit
     loop {
         let task_status = select! {
             task_status = rx_status.recv().fuse() => task_status,
             interrupt_signal = interrupt_signal_future => {
                 match interrupt_signal {
                     Ok(()) => {
-                        info!("接收到中断信号");
+                        info!("Interrupt received");
                     },
                     Err(err) => {
-                        error!("无法监听中断信号: {}", err);
-                        // 在发生错误时也关闭
+                        error!("Unable to listen for interrupt signal: {}", err);
+                        // we also shut down in case of error
                     },
                 }
                 break;
@@ -204,21 +208,21 @@ async fn main() {
         let task_status: Status = task_status.unwrap();
 
         match task_status.state {
-            // 应仅由下游监听器发送
+            // Should only be sent by the downstream listener
             State::DownstreamShutdown(err) => {
-                error!("关闭来自: {}", err);
+                error!("SHUTDOWN from: {}", err);
                 break;
             }
             State::BridgeShutdown(err) => {
-                error!("关闭来自: {}", err);
+                error!("SHUTDOWN from: {}", err);
                 break;
             }
             State::UpstreamShutdown(err) => {
-                error!("关闭来自: {}", err);
+                error!("SHUTDOWN from: {}", err);
                 break;
             }
             State::Healthy(msg) => {
-                info!("健康消息: {}", msg);
+                info!("HEALTHY message: {}", msg);
             }
         }
     }

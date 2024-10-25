@@ -24,7 +24,7 @@ impl SetupConnectionHandler {
         let hardware_version = String::new().try_into()?;
         let firmware = String::new().try_into()?;
         let device_id = String::new().try_into()?;
-        let mut setup_connection = SetupConnection {
+        Ok(SetupConnection {
             protocol: Protocol::TemplateDistributionProtocol,
             min_version: 2,
             max_version: 2,
@@ -35,9 +35,7 @@ impl SetupConnectionHandler {
             hardware_version,
             firmware,
             device_id,
-        };
-        setup_connection.set_async_job_nogotiation();
-        Ok(setup_connection)
+        })
     }
 
     pub async fn setup(

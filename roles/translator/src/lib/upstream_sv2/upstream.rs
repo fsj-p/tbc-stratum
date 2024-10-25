@@ -181,7 +181,7 @@ impl Upstream {
         max_version: u16,
     ) -> ProxyResult<'static, ()> {
         // Get the `SetupConnection` message with Mining Device information (currently hard coded)
-        let setup_connection = Self::get_setup_connection_message(min_version, max_version, true)?;
+        let setup_connection = Self::get_setup_connection_message(min_version, max_version, false)?;
         let mut connection = self_
             .safe_lock(|s| s.connection.clone())
             .map_err(|_e| PoisonLock)?;
@@ -529,7 +529,7 @@ impl Upstream {
         let device_id = String::new().try_into()?;
         let flags = match is_work_selection_enabled {
             false => 0b0000_0000_0000_0000_0000_0000_0000_0100,
-            true => 0b0000_0000_0000_0000_0000_0000_0000_0111,
+            true => 0b0000_0000_0000_0000_0000_0000_0000_0110,
         };
         Ok(SetupConnection {
             protocol: Protocol::MiningProtocol,

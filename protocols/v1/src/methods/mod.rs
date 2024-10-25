@@ -131,7 +131,6 @@ pub enum Client2Server<'a> {
     ExtranonceSubscribe(client_to_server::ExtranonceSubscribe),
     Submit(client_to_server::Submit<'a>),
     Configure(client_to_server::Configure),
-    MultiVersion(client_to_server::MultiVersion),
 }
 
 impl<'a> From<Client2Server<'a>> for Method<'a> {

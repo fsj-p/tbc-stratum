@@ -3,7 +3,7 @@ use roles_logic_sv2::{
     job_creator::extended_job_set_version_rolling,
     mining_sv2::{NewExtendedMiningJob, SetNewPrevHash},
 };
-use tracing::debug;
+use tracing::{debug, info};
 use v1::{
     server_to_client,
     utils::{HexU32Be, MerkleNode, PrevHash},
@@ -14,15 +14,17 @@ use v1::{
 /// waited on, the function returns `None`.
 /// If clean_jobs = false, it means a new job is created, with the same PrevHash
 pub fn create_notify(
+    extranonce_prefix: Vec<u8>,
     new_prev_hash: SetNewPrevHash<'static>,
     new_job: NewExtendedMiningJob<'static>,
     clean_jobs: bool,
 ) -> server_to_client::Notify<'static> {
     // TODO 32 must be changed!
-    // let new_job = extended_job_to_non_segwit(new_job, 32)
+    // let new_job = extended_job_to_non_segwit(new_job, 29)
     //     .expect("failed to convert extended job to non segwit");
-    let new_job = extended_job_set_version_rolling(new_job)
-        .expect("failed to convert extended job set version rolling");
+
+    let new_job = extended_job_set_version_rolling(new_job, extranonce_prefix)
+        .expect("failed to convert extended job to non segwit");
     // Make sure that SetNewPrevHash + NewExtendedMiningJob is matching (not future)
     let job_id = new_job.job_id.to_string();
 

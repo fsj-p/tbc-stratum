@@ -193,7 +193,7 @@ pub trait ParseDownstreamMiningMessages<
                         .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
                 }
                 SupportedChannelTypes::GroupAndExtended => {
-                    info!("Received UpdateChannel->GroupAndExtended message m:{:?}",m);
+                    info!("Received UpdateChannel->GroupAndExtended message");
                     self_mutex
                         .safe_lock(|self_| self_.handle_update_channel(m))
                         .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
@@ -323,7 +323,6 @@ pub trait ParseUpstreamMiningMessages<
         payload: &mut [u8],
         routing_logic: MiningRoutingLogic<Down, Self, Selector, Router>,
     ) -> Result<SendTo<Down>, Error> {
-        info!("line:{:?} start handle_message_mining",line!());
         match Self::handle_message_mining_deserialized(
             self_mutex,
             (message_type, payload).try_into(),

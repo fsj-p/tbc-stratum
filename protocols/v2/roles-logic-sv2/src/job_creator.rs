@@ -124,7 +124,6 @@ impl JobsCreators {
     /// we clear all the saved templates.
     pub fn on_new_prev_hash(&mut self, prev_hash: &SetNewPrevHash<'static>) -> Option<u32> {
         self.last_target = prev_hash.target.clone().into();
-        info!("on_new_prev_hash last_target:{:?}",self.last_target);
         let template: Vec<NewTemplate<'static>> = self
             .lasts_new_template
             .clone()
@@ -213,7 +212,7 @@ fn new_extended_job(
     version_rolling_allowed: bool,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
-    let extranonce_len = 24;
+    let extranonce_len = 29;
     let value_remaining = match new_template.coinbase_tx_value_remaining.checked_mul(1) {
         //check that value_remaining is updated by TP
         Some(result) => result,
@@ -371,13 +370,10 @@ fn coinbase_tx_prefix(
 fn coinbase_tx_preimage_prefix(coinbase: &Transaction) -> Result<B064K<'static>, errors::Error> {
     let mut encoded: Vec<u8> = Vec::new();
     coinbase.version.consensus_encode(&mut encoded).expect("encoding error");
-    info!("version encoded (before truncation): {:?}", encoded);
     
     // 只保留第一个字节
     let single_byte = encoded.get(0).cloned().unwrap_or(0);
     let encoded = vec![single_byte];
-    
-    info!("coinbase_tx_preimage_prefix encoded: {:?}", encoded);
     
     encoded.try_into().map_err(Error::BinarySv2Error)
 }
@@ -424,7 +420,6 @@ fn coinbase_tx_preimage_suffix(coinbase: &Transaction) -> Result<B064K<'static>,
     let output_hash = coinbase.output_hash();
     encoded.extend_from_slice(&output_hash[..]);
 
-    info!("coinbase_tx_preimage_suffix encoded:{:?}",encoded);
     encoded.try_into().map_err(Error::BinarySv2Error)
 }
 
@@ -874,14 +869,20 @@ pub fn extended_job_to_non_segwit(
 
 pub fn extended_job_set_version_rolling(
     job: NewExtendedMiningJob<'static>,
+    extranonce_prefix: Vec<u8>,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
     let mut encoded = job.coinbase_tx_prefix.to_vec();
-    let extranonce = [0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1];
-    encoded.extend_from_slice(&extranonce[..]);
+
+    //encoded.extend_from_slice(&extranonce_prefix[..]);
+    if extranonce_prefix.is_empty() {
+        encoded.extend_from_slice(&vec![0u8; 29]);
+    } else {
+        encoded.extend_from_slice(&extranonce_prefix[..]);
+    }
     encoded.extend_from_slice(job.coinbase_tx_suffix.inner_as_ref());
     let coinbase = Transaction::deserialize(&encoded).map_err(|_| Error::InvalidCoinbase)?;
 
-    let job_segwit = NewExtendedMiningJob {
+    let extended_job = NewExtendedMiningJob {
         channel_id: job.channel_id,
         job_id: job.job_id,
         min_ntime: job.min_ntime,
@@ -892,7 +893,7 @@ pub fn extended_job_set_version_rolling(
         coinbase_tx_suffix: coinbase_tx_preimage_suffix(&coinbase)?,
     };
 
-    Ok(job_segwit)
+    Ok(extended_job)
 }
 
 /// Helper type to strip a segwit data from the coinbase_tx_prefix and coinbase_tx_suffix

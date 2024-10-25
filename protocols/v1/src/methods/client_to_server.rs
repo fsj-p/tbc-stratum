@@ -654,9 +654,6 @@ impl From<InfoParams> for serde_json::Map<String, Value> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct MultiVersion();
-
 // mining.suggest_difficulty
 
 // mining.suggest_target

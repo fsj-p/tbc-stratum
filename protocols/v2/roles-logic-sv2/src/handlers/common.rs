@@ -173,12 +173,9 @@ where
                             .safe_lock(|x| x.handle_setup_connection(m, Some(result)))
                             .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
                     }
-                    CommonRoutingLogic::None => {
-                        info!("handle_setup_connection m:{:?}",m);
-                        self_
+                    CommonRoutingLogic::None => self_
                         .safe_lock(|x| x.handle_setup_connection(m, None))
-                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?
-                    }
+                        .map_err(|e| crate::Error::PoisonLock(e.to_string()))?,
                 }
             }
             Ok(CommonMessages::SetupConnectionSuccess(_)) => Err(Error::UnexpectedMessage(

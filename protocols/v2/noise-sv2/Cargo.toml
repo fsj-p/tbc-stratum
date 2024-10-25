@@ -14,7 +14,6 @@ aes-gcm = "0.10.2"
 chacha20poly1305 = "0.10.1"
 rand_chacha = "0.3.1"
 const_sv2 = { version = "^1.0.0", path = "../../../protocols/v2/const-sv2"}
-log = "0.4.0"
 
 [dev-dependencies]
 quickcheck = "1.0.3"

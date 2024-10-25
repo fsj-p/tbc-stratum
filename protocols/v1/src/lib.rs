@@ -42,6 +42,7 @@ pub mod methods;
 pub mod utils;
 
 use std::convert::{TryFrom, TryInto};
+use log::info;
 use tracing::debug;
 
 // use error::Result;
@@ -107,10 +108,6 @@ pub trait IsServer<'a> {
                 self.handle_extranonce_subscribe();
                 Ok(None)
             }
-            methods::Client2Server::MultiVersion(_) => {
-                self.handle_extranonce_subscribe();
-                Ok(None)
-            }
             methods::Client2Server::Submit(submit) => {
                 let has_valid_version_bits = match &submit.version_bits {
                     Some(a) => {
@@ -123,9 +120,8 @@ pub trait IsServer<'a> {
                     None => self.version_rolling_mask().is_none(),
                 };
 
-                //TODO fsj Must be modified
                 let is_valid_submission = self.is_authorized(&submit.user_name)
-                    //&& self.extranonce2_size() == submit.extra_nonce2.len()
+                    && self.extranonce2_size() == submit.extra_nonce2.len()
                     && has_valid_version_bits;
 
                 if is_valid_submission {
@@ -138,8 +134,9 @@ pub trait IsServer<'a> {
             methods::Client2Server::Subscribe(subscribe) => {
                 let subscriptions = self.handle_subscribe(&subscribe);
                 let extra_n1 = self.set_extranonce1(None);
+                let extra_n1 = vec![];
+                let extra_n1 = extra_n1.try_into().unwrap();
                 let extra_n2_size = self.set_extranonce2_size(None);
-                let extra_n2_size = 3;
                 Ok(Some(subscribe.respond(
                     subscriptions,
                     extra_n1,

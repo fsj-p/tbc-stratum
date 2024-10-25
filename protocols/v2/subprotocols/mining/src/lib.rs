@@ -110,7 +110,6 @@ use core::{
     cmp::{Ord, PartialOrd},
     convert::TryInto,
 };
-use log::info;
 
 #[macro_use]
 extern crate alloc;
@@ -521,7 +520,6 @@ impl ExtendedExtranonce {
     }
 
     pub fn get_prefix_len(&self) -> usize {
-        info!("call get_prefix_len range_1.end:{:?}",self.range_1.end);
         self.range_1.end - self.range_0.start
     }
 
@@ -593,24 +591,16 @@ impl ExtendedExtranonce {
     /// incremented is range_1, as every downstream must have different jobs.
     pub fn next_extended(&mut self, required_len: usize) -> Option<Extranonce> {
         if required_len > self.range_2.end - self.range_2.start {
-            info!("call next_extended return len");
             return None;
         };
-        info!("range_0:{:?}",self.range_0);
-        info!("range_1:{:?}",self.range_1);
-        info!("range_2:{:?}",self.range_2);
         let extended_part = &mut self.inner[self.range_1.start..self.range_1.end];
-        info!("extended_part:{:?}", extended_part);
         match increment_bytes_be(extended_part) {
             Ok(_) => {
                 let result = self.inner[..self.range_1.end].to_vec();
                 // Safe unwrap result will be always less the MAX_EXTRANONCE_LEN
                 Some(result.try_into().unwrap())
             }
-            Err(_) => {
-                info!("call err");
-                None
-            }
+            Err(_) => None,
         }
     }
 
@@ -653,10 +643,10 @@ impl ExtendedExtranonce {
 fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
     for b in bs.iter_mut().rev() {
         if *b != u8::MAX {
-            *b += 1;
+            *b = 1;
             return Ok(());
         } else {
-            *b = 0;
+            *b = 1;
         }
     }
     for b in bs.iter_mut() {
