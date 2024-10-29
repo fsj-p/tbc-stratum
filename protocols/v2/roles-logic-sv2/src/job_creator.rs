@@ -212,7 +212,7 @@ fn new_extended_job(
     version_rolling_allowed: bool,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
-    let extranonce_len = 29;
+    let extranonce_len = 25;
     let value_remaining = match new_template.coinbase_tx_value_remaining.checked_mul(1) {
         //check that value_remaining is updated by TP
         Some(result) => result,
@@ -278,6 +278,7 @@ fn new_extended_job(
     vec_tbc_charge_output.push(script_to_tal_len);
     vec_tbc_charge_output.push(0x01);                                   // KYC flag
     vec_tbc_charge_output.extend_from_slice(&public_key_serialized);
+    vec_tbc_charge_output.push(encrypted_data.to_vec().len() as u8);
     vec_tbc_charge_output.extend(encrypted_data);
 
     // 数据处理
@@ -875,7 +876,7 @@ pub fn extended_job_set_version_rolling(
 
     //encoded.extend_from_slice(&extranonce_prefix[..]);
     if extranonce_prefix.is_empty() {
-        encoded.extend_from_slice(&vec![0u8; 29]);
+        encoded.extend_from_slice(&vec![0u8; 25]);
     } else {
         encoded.extend_from_slice(&extranonce_prefix[..]);
     }
