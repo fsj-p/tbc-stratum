@@ -20,8 +20,8 @@ coinbase_outputs = [
 
 # Pool signature (string to be included in coinbase tx)
 pool_signature = ""
-tbc_encrypted_kyc_privkey = "IoySLHOcgCJzzAA1gzfdcx5cj3TEH26o0z4/P6GustZEUZYvs449oKjDZSTY1+0qOW8NDK/ggVQVR2tg28CpMw=="
-tbc_miner_kyc_sig = "304402201accc6d8930241552680aaaadeb00465a5255b3524de0af0bb9ead7e46b12a7d02203a50e1a8adca0b68f367c5205325693de2e1b53cd61e151a9c5c9b3f8bd9b5720e7ef023"
+tbc_encrypted_kyc_privkey = "lB0G4J/fG/gOxwlKHm+x5tVNh7iWTDhXqXNFTxVVr8rNIguB3PCoucMVRBCPdMx5ENpWjbyL0M6htg0cyjUaHw=="
+tbc_miner_kyc_sig = "3044022017499743d7528eac12d7a3fc8d8076ca1b777642caa92b45b90d3319669497af02203b57afb04f9a52657df9083242a2decc570e38658c5e686cac54d9ff6bccaa070e7ef023"
 charge_addr = "1HQbjAs7CQAKeV3FQEUGuepBfR2pJDzUjK"
 
 # Template Provider config

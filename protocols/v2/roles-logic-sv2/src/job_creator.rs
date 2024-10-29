@@ -225,8 +225,13 @@ fn new_extended_job(
 
     let not_segwit = get_bip_seg_wit_flag(new_template);
     let bip34_bytes = get_bip_34_bytes(new_template, tx_version)?;
-    let height_data = get_block_height_data(&bip34_bytes);
+    let (height_data, bip34_bytes) = get_block_height_data(&bip34_bytes)
+        .map_err(|e| {
+            error!("Error extracting block height data: {}", e);
+            Error::KYCBusiness
+        })?;
 
+    let bip34_bytes_vec = bip34_bytes.to_vec();
     let message_vec: Vec<u8>  = height_data.to_vec().into_iter().rev().collect();
     let message: [u8; 3] = message_vec.try_into().expect("Expected a Vec of length 3");
     let double_sha256 = double_sha256(&message);
@@ -282,7 +287,7 @@ fn new_extended_job(
     vec_tbc_charge_output.extend(encrypted_data);
 
     // 数据处理
-    let script_prefix_len = bip34_bytes.len() + signature_der.to_vec().len();
+    let script_prefix_len = bip34_bytes_vec.len() + signature_der.to_vec().len() + 1;
     
     let charge_txout = TxOut {
         value: (value_remaining * u64::from(fee_percentage)) / 100,
@@ -302,7 +307,7 @@ fn new_extended_job(
     let coinbase_outputs: &mut [TxOut] = coinbase_outputs_vec.as_mut_slice();
 
     let coinbase = coinbase(
-        bip34_bytes,
+        bip34_bytes_vec,
         not_segwit,
         tx_version,
         new_template.coinbase_tx_locktime,
@@ -459,17 +464,20 @@ fn get_bip_34_bytes(new_template: &NewTemplate, tx_version: i32) -> Result<Vec<u
     }
 }
 
-fn get_block_height_data(bip34_bytes: &[u8]) -> &[u8] {
+fn get_block_height_data(bip34_bytes: &[u8]) -> Result<(&[u8], &[u8]), String> {
     // 获取第一个字节，表示后续高度字节的长度
     let len = bip34_bytes[0] as usize;
 
     // 确保不会越界访问
     if bip34_bytes.len() < len + 1 {
-        panic!("bip34_bytes length is less than expected height length.");
+        return Err("bip34_bytes length is less than expected height length.".to_string());
     }
-    
-    let height_bytes = &bip34_bytes[1..len+1];
-    height_bytes
+
+    // 提取高度字节切片
+    let height_bytes = &bip34_bytes[1..len + 1];
+    let bip34_bytes_slice = &bip34_bytes[0..len + 1];
+
+    Ok((height_bytes, bip34_bytes_slice))
 }
 
 fn double_sha256(data: &[u8]) -> Vec<u8> {
@@ -824,6 +832,7 @@ fn coinbase(
 
     let decoded_vec = hex::decode(&privkey_sig).expect("Decoding failed");
 
+    bip34_bytes.push(decoded_vec.len() as u8);
     bip34_bytes.extend_from_slice(&decoded_vec);
     bip34_bytes.extend_from_slice(pool_signature.as_bytes());
     bip34_bytes.extend_from_slice(&vec![0; extranonce_len as usize]);
