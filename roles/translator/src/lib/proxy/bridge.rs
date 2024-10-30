@@ -104,7 +104,6 @@ impl Bridge {
                 String::from(""),
                 String::from(""),
                 String::from(""),
-                String::from(""),
                 up_id,
             ),
             future_jobs: vec![],

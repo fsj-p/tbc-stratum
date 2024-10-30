@@ -91,7 +91,6 @@ pub struct Configuration {
     pub pool_signature: String,
     pub tbc_encrypted_kyc_privkey: String,
     pub tbc_miner_kyc_sig: String,
-    pub charge_addr: String,
     #[cfg(feature = "test_only_allow_unencrypted")]
     pub test_only_listen_adress_plain: String,
 }
@@ -554,7 +553,6 @@ impl Pool {
             config.tbc_encrypted_kyc_privkey.clone(),
             decryption_password.clone(),
             config.tbc_miner_kyc_sig.clone(),
-            config.charge_addr.clone(),
         )));
         let pool = Arc::new(Mutex::new(Pool {
             downstreams: HashMap::with_hasher(BuildNoHashHasher::default()),

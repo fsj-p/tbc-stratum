@@ -668,7 +668,7 @@ impl ChannelFactory {
         self.last_prev_hash = Some((m, ids));
         Ok(())
     }
-    fn get_channel_specific_extended(&self, channel_id: &u32) -> Option<(Vec<u8>)> {
+    fn get_channel_specific_extended(&self, channel_id: &u32) -> Option<Vec<u8>> {
         let channel = self.extended_channels.get(channel_id);
         match channel {
             Some(channel) => {
@@ -863,9 +863,9 @@ impl ChannelFactory {
                 print_hash.to_vec().to_hex()
             );
 
-            let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
-                .concat()
-                .to_vec();
+            // let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
+            //     .concat()
+            //     .to_vec();
             let coinbase = crate::utils::splicing_coinbase_vec(coinbase_tx_prefix, coinbase_tx_suffix, &extranonce);
             let coinbase = match coinbase {
                 Some(vec) => vec,
@@ -1000,7 +1000,6 @@ pub struct PoolChannelFactory {
     tbc_encrypted_kyc_privkey: String,
     decryption_password: String,
     tbc_miner_kyc_sig: String,
-    charge_addr: String,
     // extedned_channel_id -> SetCustomMiningJob
     negotiated_jobs: HashMap<u32, SetCustomMiningJob<'static>, BuildNoHashHasher<u32>>,
 }
@@ -1017,7 +1016,6 @@ impl PoolChannelFactory {
         tbc_encrypted_kyc_privkey: String,
         decryption_password: String,
         tbc_miner_kyc_sig: String,
-        charge_addr: String,
     ) -> Self {
         let inner = ChannelFactory {
             ids,
@@ -1048,7 +1046,6 @@ impl PoolChannelFactory {
             tbc_encrypted_kyc_privkey,
             decryption_password,
             tbc_miner_kyc_sig,
-            charge_addr,
             negotiated_jobs: HashMap::with_hasher(BuildNoHashHasher::default()),
         }
     }
@@ -1120,7 +1117,6 @@ impl PoolChannelFactory {
             self.tbc_encrypted_kyc_privkey.clone(),
             self.decryption_password.clone(),
             self.tbc_miner_kyc_sig.clone(),
-            self.charge_addr.clone(),
         )?;
         self.inner.on_new_extended_mining_job(new_job)
     }
@@ -1204,7 +1200,6 @@ impl PoolChannelFactory {
                     self.tbc_encrypted_kyc_privkey.clone(), 
                     self.decryption_password.clone(),
                     self.tbc_miner_kyc_sig.clone(), 
-                    self.charge_addr.clone() ,
                     32)
                     .unwrap();
             let prev_blockhash = crate::utils::u256_to_block_hash(referenced_job.prev_hash.clone());
@@ -1341,7 +1336,6 @@ pub struct ProxyExtendedChannelFactory {
     tbc_encrypted_kyc_privkey: String,
     decryption_password: String,
     tbc_miner_kyc_sig: String,
-    charge_addr: String,
     // Id assigned to the extended channel by upstream
     extended_channel_id: u32,
 }
@@ -1359,7 +1353,6 @@ impl ProxyExtendedChannelFactory {
         tbc_encrypted_kyc_privkey: String,
         decryption_password: String,
         tbc_miner_kyc_sig: String,
-        charge_addr: String,
         extended_channel_id: u32,
     ) -> Self {
         match &kind {
@@ -1403,7 +1396,6 @@ impl ProxyExtendedChannelFactory {
             tbc_encrypted_kyc_privkey,
             decryption_password,
             tbc_miner_kyc_sig,
-            charge_addr,
             extended_channel_id,
         }
     }
@@ -1500,7 +1492,6 @@ impl ProxyExtendedChannelFactory {
                 self.tbc_encrypted_kyc_privkey.clone(),
                 self.decryption_password.clone(),
                 self.tbc_miner_kyc_sig.clone(),
-                self.charge_addr.clone(),
             )?;
             let id = new_job.job_id;
             if !new_job.is_future() && self.inner.last_prev_hash.is_some() {
@@ -1736,7 +1727,7 @@ impl ProxyExtendedChannelFactory {
         })
     }
 
-    pub fn get_channel_specific_extended(&self, channel_id: &u32) -> Option<(Vec<u8>)> {
+    pub fn get_channel_specific_extended(&self, channel_id: &u32) -> Option<Vec<u8>> {
         self.inner.get_channel_specific_extended(channel_id)
     }
 

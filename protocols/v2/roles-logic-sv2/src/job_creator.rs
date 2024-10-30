@@ -15,7 +15,6 @@ use openssl::pkcs5::pbkdf2_hmac;
 use openssl::hash::MessageDigest;
 use sha2::{Sha256, Digest};
 use hex;
-use base58::FromBase58;
 use stratum_common::bitcoin::consensus::Encodable;
 
 use stratum_common::{
@@ -84,7 +83,6 @@ impl JobsCreators {
         tbc_encrypted_kyc_privkey: String,
         decryption_password: String,
         tbc_miner_kyc_sig: String,
-        charge_addr: String,
     ) -> Result<NewExtendedMiningJob<'static>, Error> {
         let server_tx_outputs = template.coinbase_tx_outputs.to_vec();
         let mut outputs = tx_outputs_to_costum_scripts(&server_tx_outputs);
@@ -105,7 +103,6 @@ impl JobsCreators {
             tbc_encrypted_kyc_privkey,
             decryption_password,
             tbc_miner_kyc_sig,
-            charge_addr,
             next_job_id,
             version_rolling_allowed,
             self.extranonce_len,
@@ -159,7 +156,6 @@ pub fn extended_job_from_custom_job(
     tbc_encrypted_kyc_privkey: String,
     decryption_password: String,
     tbc_miner_kyc_sig: String,
-    charge_addr: String,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
     let mut outputs =
@@ -184,7 +180,6 @@ pub fn extended_job_from_custom_job(
         tbc_encrypted_kyc_privkey,
         decryption_password,
         tbc_miner_kyc_sig,
-        charge_addr,
         0,
         true,
         extranonce_len,
@@ -207,7 +202,6 @@ fn new_extended_job(
     tbc_encrypted_kyc_privkey: String,
     decryption_password: String,
     tbc_miner_kyc_sig: String,
-    charge_addr: String,
     job_id: u32,
     version_rolling_allowed: bool,
     extranonce_len: u8,
@@ -248,6 +242,7 @@ fn new_extended_job(
     let public_key = create_and_serialize_pubkey(&secp, &private_key)
         .map_err(|_| Error::KYCBusiness)?;
     let public_key_serialized = public_key.serialize();
+    info!("public_key_serialized:{:?}",public_key_serialized);
     
     // 生成sigB
     let signature_der = sign_message_with_private_key(&double_sha256, &private_key)
@@ -267,12 +262,7 @@ fn new_extended_job(
     };
 
     // 组装 KYC output script
-    let mut vec_tbc_charge_output = Vec::<u8>::new();
-
-    let mut addr_script = Vec::new();
-    let _add_script_size = address_to_script(&mut addr_script, &charge_addr);
-    
-    vec_tbc_charge_output.extend(addr_script);
+    let mut vec_tbc_charge_output = coinbase_outputs[0].script_pubkey.as_ref().to_vec();
 
     let encrypted_data = hex::decode(tbc_miner_kyc_sig)
         .map_err(|_| Error::KYCBusiness)?;
@@ -286,25 +276,13 @@ fn new_extended_job(
     vec_tbc_charge_output.push(encrypted_data.to_vec().len() as u8);
     vec_tbc_charge_output.extend(encrypted_data);
 
+    coinbase_outputs[0].script_pubkey = vec_tbc_charge_output.into();
+
     // 数据处理
     let script_prefix_len = bip34_bytes_vec.len() + signature_der.to_vec().len() + 1;
     
-    let charge_txout = TxOut {
-        value: (value_remaining * u64::from(fee_percentage)) / 100,
-        script_pubkey: vec_tbc_charge_output.into(),
-    };
-
-    coinbase_outputs[0].value = value_remaining - charge_txout.value;
-
-    // Convert charge_txout to a Vec
-    let mut coinbase_outputs_vec = Vec::new();
-    coinbase_outputs_vec.push(charge_txout);
-
-    // Append the existing coinbase_outputs
-    coinbase_outputs_vec.extend_from_slice(&coinbase_outputs);
-
-    // Update coinbase_outputs as a mutable slice
-    let coinbase_outputs: &mut [TxOut] = coinbase_outputs_vec.as_mut_slice();
+    coinbase_outputs[0].value = (value_remaining * u64::from(fee_percentage)) / 100;
+    coinbase_outputs[1].value = value_remaining - coinbase_outputs[0].value;
 
     let coinbase = coinbase(
         bip34_bytes_vec,
@@ -583,226 +561,6 @@ fn get_fee_percentage(hex_string: &str) -> Result<u8, Error> {
         })?;
     
     Ok(*last_byte)
-}
-
-
-const BECH32_CHARSET_REV: [i8; 128] = [
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, 15, -1, 10, 17, 21, 20, 26, 30,  7,  5, -1, -1, -1, -1, -1, -1, 29, -1, 24, 13, 25,  9,  8,
-    23, -1, 18, 22, 31, 27, 19, -1,  1,  0,  3, 16, 11, 28, 12, 14,  6,  4,  2, -1, -1, -1, -1, -1,
-    -1, 29, -1, 24, 13, 25,  9,  8, 23, -1, 18, 22, 31, 27, 19, -1,  1,  0,  3, 16, 11, 28, 12, 14,
-     6,  4,  2, -1, -1, -1, -1, -1
-];
-
-fn b58dec(addr: &str) -> Option<[u8; 25]> {
-    match addr.from_base58() {
-        Ok(decoded) if decoded.len() == 25 => {
-            let mut addrbin = [0u8; 25];
-            addrbin.copy_from_slice(&decoded);
-            Some(addrbin)
-        }
-        _ => None,
-    }
-}
-
-fn b58check(addrbin: &[u8]) -> i32 {
-    if addrbin.len() != 25 {
-        return -1;
-    }
-
-    let checksum_index = addrbin.len() - 4;
-    let payload = &addrbin[..checksum_index];
-    let checksum = &addrbin[checksum_index..];
-
-    let hash = Sha256::digest(&Sha256::digest(payload));
-    if &hash[0..4] != checksum {
-        return -1;
-    }
-
-    let zeros = addrbin.iter().take_while(|&&b| b == 0).count();
-    if addrbin[zeros] == 0 {
-        return -3;
-    }
-
-    addrbin[0] as i32
-}
-
-fn convert_bits(out: &mut Vec<u8>, outbits: usize, input: &[u8], inbits: usize, pad: bool) -> bool {
-    let mut val = 0;
-    let mut bits = 0;
-    let maxv = (1 << outbits) - 1;
-
-    for &byte in input {
-        val = (val << inbits) | (byte as usize);
-        bits += inbits;
-
-        while bits >= outbits {
-            bits -= outbits;
-            out.push(((val >> bits) & maxv) as u8);
-        }
-    }
-
-    if pad {
-        if bits > 0 {
-            out.push(((val << (outbits - bits)) & maxv) as u8);
-        }
-    } else if (val << (outbits - bits)) & maxv != 0 || bits >= inbits {
-        return false;
-    }
-
-    true
-}
-
-fn bech32_polymod_step(pre: u32) -> u32 {
-    let b = pre >> 25;
-    ((pre & 0x1ffffff) << 5)
-        ^ (if (b & 1) != 0 { 0x3b6a57b2 } else { 0 })
-        ^ (if (b & 2) != 0 { 0x26508e6d } else { 0 })
-        ^ (if (b & 4) != 0 { 0x1ea119fa } else { 0 })
-        ^ (if (b & 8) != 0 { 0x3d4233dd } else { 0 })
-        ^ (if (b & 16) != 0 { 0x2a1462b3 } else { 0 })
-}
-
-fn bech32_decode(hrp: &mut String, data: &mut Vec<u8>, input: &str) -> bool {
-    let mut chk = 1u32;
-    let mut have_lower = false;
-    let mut have_upper = false;
-
-    if input.len() < 8 || input.len() > 90 {
-        return false;
-    }
-
-    let mut data_part_len = 0;
-    for (i, c) in input.chars().rev().enumerate() {
-        if c == '1' {
-            data_part_len = i;
-            break;
-        }
-    }
-    let hrp_len = input.len() - (1 + data_part_len);
-
-    if 1 + data_part_len >= input.len() || data_part_len < 6 {
-        return false;
-    }
-
-    for c in input.chars().take(hrp_len) {
-        if c.is_ascii_lowercase() {
-            have_lower = true;
-        } else if c.is_ascii_uppercase() {
-            have_upper = true;
-        }
-        if let Some(ch) = c.to_ascii_lowercase().to_digit(36) {
-            chk = bech32_polymod_step(chk) ^ (ch >> 5);
-            hrp.push(c);
-        } else {
-            return false;
-        }
-    }
-
-    chk = bech32_polymod_step(chk);
-
-    for c in input.chars().take(hrp_len) {
-        chk = bech32_polymod_step(chk) ^ ((c as u32) & 0x1f);
-    }
-
-    for (i, c) in input.chars().skip(hrp_len + 1).enumerate() {
-        if c.is_ascii_lowercase() {
-            have_lower = true;
-        } else if c.is_ascii_uppercase() {
-            have_upper = true;
-        }
-        if let Some(&v) = BECH32_CHARSET_REV.get(c as usize) {
-            if v == -1 {
-                return false;
-            }
-            chk = bech32_polymod_step(chk) ^ (v as u32);
-            if i + 6 < input.len() - hrp_len - 1 {
-                data.push(v as u8);
-            }
-        } else {
-            return false;
-        }
-    }
-
-    if have_lower && have_upper {
-        return false;
-    }
-
-    chk == 1
-}
-
-fn segwit_addr_decode(addr: &str) -> Option<(u8, Vec<u8>)> {
-    let mut hrp = String::new();
-    let mut data = Vec::new();
-    if !bech32_decode(&mut hrp, &mut data, addr) {
-        return None;
-    }
-
-    if data.len() == 0 || data.len() > 65 || data[0] > 16 {
-        return None;
-    }
-
-    let mut witdata = Vec::new();
-    if !convert_bits(&mut witdata, 8, &data[1..], 5, false) {
-        return None;
-    }
-
-    if witdata.len() < 2 || witdata.len() > 40 || (data[0] == 0 && witdata.len() != 20 && witdata.len() != 32) {
-        return None;
-    }
-
-    Some((data[0], witdata))
-}
-
-fn bech32_to_script(out: &mut Vec<u8>, addr: &str) -> usize {
-    if let Some((witver, witprog)) = segwit_addr_decode(addr) {
-        let witprog_len = witprog.len();
-        if out.len() < witprog_len + 2 {
-            return 0;
-        }
-        out.push(if witver > 0 { 0x50 + witver } else { 0 });
-        out.push(witprog_len as u8);
-        out.extend_from_slice(&witprog);
-        witprog_len + 2
-    } else {
-        0
-    }
-}
-
-fn address_to_script(out: &mut Vec<u8>, addr: &str) -> usize {
-    let addrbin;
-    let addrver;
-
-    if let Some(decoded) = b58dec(addr) {
-        addrbin = decoded;
-    } else {
-        return bech32_to_script(out, addr);
-    }
-
-    addrver = b58check(&addrbin);
-    if addrver < 0 {
-        return 0;
-    }
-
-    match addrver {
-        5 | 196 => {
-            out.push(0xa9);
-            out.push(0x14);
-            out.extend_from_slice(&addrbin[1..21]);
-            out.push(0x87);
-            23
-        }
-        _ => {
-            out.push(0x76);
-            out.push(0xa9);
-            out.push(0x14);
-            out.extend_from_slice(&addrbin[1..21]);
-            out.push(0x88);
-            out.push(0xac);
-            25
-        }
-    }
 }
 
 /// coinbase_tx_input_script_prefix: extranonce prefix (script lenght + bip34 block height) provided by the node

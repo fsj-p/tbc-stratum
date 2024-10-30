@@ -21,6 +21,11 @@ use stratum_common::{
             psbt::serialize::Deserialize,
             uint::{Uint128, Uint256},
             BitArray,
+            address::{
+                AddressType,
+                Payload,
+                Address,
+            }
         },
         PublicKey, Script, Transaction, XOnlyPublicKey,
     },
@@ -226,6 +231,30 @@ pub struct CoinbaseOutput {
     pub output_script_value: String,
 }
 
+fn create_p2pkh_script(output_script_value: &str) -> Result<Script, Error> {
+    // 将地址字符串解析为 Address 对象
+    let address = Address::from_str(output_script_value)
+        .map_err(|_| Error::InvalidOutputScript)?;
+    
+    // 检查地址类型是否为 P2PKH
+    if let Some(address_type) = address.address_type() {
+        if address_type == AddressType::P2pkh {
+            // 获取 pubkey_hash
+            let pub_key_hash = match address.payload {
+                Payload::PubkeyHash(ref hash) => hash,
+                _ => return Err(Error::InvalidOutputScript), // 其他类型不支持
+            };
+            
+            info!("addr pub_key_hash: {:?}", pub_key_hash);
+            
+            // 生成并返回 P2PKH 脚本
+            return Ok(Script::new_p2pkh(pub_key_hash));
+        }
+    }
+    
+    Err(Error::InvalidOutputScript) // 不是 P2PKH 地址时返回错误
+}
+
 impl TryFrom<CoinbaseOutput> for Script {
     type Error = Error;
 
@@ -243,10 +272,19 @@ impl TryFrom<CoinbaseOutput> for Script {
                 Ok(Script::new_p2pk(&pub_key))
             }
             "P2PKH" => {
-                let pub_key_hash = PublicKey::from_str(&value.output_script_value)
-                    .map_err(|_| Error::InvalidOutputScript)?
-                    .pubkey_hash();
-                Ok(Script::new_p2pkh(&pub_key_hash))
+                let p2pkh_script = if value.output_script_value.len() == 34
+                    && (value.output_script_value.starts_with('1') || value.output_script_value.starts_with('3'))
+                {
+                    create_p2pkh_script(&value.output_script_value)
+                } else {
+                    let pub_key_hash = PublicKey::from_str(&value.output_script_value)
+                        .map_err(|_| Error::InvalidOutputScript)?
+                        .pubkey_hash();
+                    info!("pkey pub_key_hash:{:?}",pub_key_hash);
+                    Ok(Script::new_p2pkh(&pub_key_hash))
+                };
+                info!("p2pkh_script:{:?}",p2pkh_script);
+                p2pkh_script
             }
             "P2WPKH" => {
                 let w_pub_key_hash = PublicKey::from_str(&value.output_script_value)
