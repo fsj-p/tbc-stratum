@@ -20,7 +20,7 @@ pub fn create_notify(
     clean_jobs: bool,
 ) -> server_to_client::Notify<'static> {
     // TODO 32 must be changed!
-    // let new_job = extended_job_to_non_segwit(new_job, 25)
+    // let new_job = extended_job_to_non_segwit(new_job, 21)
     //     .expect("failed to convert extended job to non segwit");
 
     let new_job = extended_job_set_version_rolling(new_job, extranonce_prefix)

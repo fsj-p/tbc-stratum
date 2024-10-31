@@ -528,7 +528,7 @@ impl Pool {
         sender_message_received_signal: Sender<()>,
         status_tx: status::Sender,
     ) -> Arc<Mutex<Self>> {
-        let extranonce_len = 28;
+        let extranonce_len = 24;
         let range_0 = std::ops::Range { start: 0, end: 0 };
         let range_1 = std::ops::Range { start: 0, end: 16 };
         let range_2 = std::ops::Range {

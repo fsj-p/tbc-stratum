@@ -206,7 +206,7 @@ fn new_extended_job(
     version_rolling_allowed: bool,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
-    let extranonce_len = 25;
+    let extranonce_len = 21;
     let value_remaining = match new_template.coinbase_tx_value_remaining.checked_mul(1) {
         //check that value_remaining is updated by TP
         Some(result) => result,
@@ -643,7 +643,7 @@ pub fn extended_job_set_version_rolling(
 
     //encoded.extend_from_slice(&extranonce_prefix[..]);
     if extranonce_prefix.is_empty() {
-        encoded.extend_from_slice(&vec![0u8; 25]);
+        encoded.extend_from_slice(&vec![0u8; 21]);
     } else {
         encoded.extend_from_slice(&extranonce_prefix[..]);
     }
