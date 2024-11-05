@@ -35,6 +35,7 @@ use v1::{
     utils::{Extranonce, HexU32Be},
     IsServer,
 };
+
 const MAX_LINE_LENGTH: usize = 2_usize.pow(16);
 
 /// Handles the sending and receiving of messages to and from an SV2 Upstream role (most typically

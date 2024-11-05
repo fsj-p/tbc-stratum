@@ -30,7 +30,7 @@ use stratum_common::{
         PublicKey, Script, Transaction, XOnlyPublicKey,
     },
 };
-use tracing::{error, info};
+use tracing::error;
 
 use crate::errors::Error;
 
@@ -186,7 +186,6 @@ pub fn merkle_root_from_path<T: AsRef<[u8]>>(
             return None;
         }
     };
-    info!("merkle_root_from_path coinbase:{:?}",coinbase);
     let coinbase = match Transaction::deserialize(&coinbase[..]) {
         Ok(trans) => trans,
         Err(e) => {
@@ -245,8 +244,6 @@ fn create_p2pkh_script(output_script_value: &str) -> Result<Script, Error> {
                 _ => return Err(Error::InvalidOutputScript), // 其他类型不支持
             };
             
-            info!("addr pub_key_hash: {:?}", pub_key_hash);
-            
             // 生成并返回 P2PKH 脚本
             return Ok(Script::new_p2pkh(pub_key_hash));
         }
@@ -280,10 +277,8 @@ impl TryFrom<CoinbaseOutput> for Script {
                     let pub_key_hash = PublicKey::from_str(&value.output_script_value)
                         .map_err(|_| Error::InvalidOutputScript)?
                         .pubkey_hash();
-                    info!("pkey pub_key_hash:{:?}",pub_key_hash);
                     Ok(Script::new_p2pkh(&pub_key_hash))
                 };
-                info!("p2pkh_script:{:?}",p2pkh_script);
                 p2pkh_script
             }
             "P2WPKH" => {
