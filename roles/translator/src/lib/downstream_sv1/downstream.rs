@@ -18,7 +18,7 @@ use tokio::sync::broadcast;
 use super::{kill, DownstreamMessages, SubmitShareWithChannelId, SUBSCRIBE_TIMEOUT_SECS};
 
 use roles_logic_sv2::{
-    job_creator::extended_job_set_version_rolling,
+    job_creator::extended_job_set_tbc_coinbase,
     common_properties::{IsDownstream, IsMiningDownstream},
     utils::Mutex,
 };
@@ -271,7 +271,17 @@ impl Downstream {
                         Downstream::send_message_downstream(downstream.clone(), message).await
                     );
 
-                    let sv1_mining_notify_msg = last_notify.clone().unwrap();
+                    let mut sv1_mining_notify_msg = last_notify.clone().unwrap();
+
+                    let extranonce1 = self_
+                        .safe_lock(|s| s.extranonce1.clone())
+                        .unwrap();
+                    let (coinbase1,coinbase2) = extended_job_set_tbc_coinbase(
+                        sv1_mining_notify_msg.coin_base1.clone().into(),sv1_mining_notify_msg.coin_base2.clone().into(), extranonce1)
+                        .expect("failed to convert extended job set version rolling");
+                    sv1_mining_notify_msg.coin_base1 = coinbase1.to_vec().into();
+                    sv1_mining_notify_msg.coin_base2 = coinbase2.to_vec().into();
+
                     let message: json_rpc::Message = sv1_mining_notify_msg.into();
                     handle_result!(
                         tx_status_notify,
@@ -291,14 +301,17 @@ impl Downstream {
                             let extranonce1 = self_
                                 .safe_lock(|s| s.extranonce1.clone())
                                 .unwrap();
-                            // let res = extended_job_set_version_rolling(res, extranonce1)
-                            //     .expect("failed to convert extended job set version rolling");
                             
                             // if hashrate has changed, update difficulty management, and send new mining.set_difficulty
                             handle_result!(tx_status_notify, Self::try_update_difficulty_settings(downstream.clone()).await);
 
+                            let mut sv1_mining_notify_msg = handle_result!(tx_status_notify, res);
+                            let (coinbase1,coinbase2) = extended_job_set_tbc_coinbase(
+                                sv1_mining_notify_msg.coin_base1.clone().into(),sv1_mining_notify_msg.coin_base2.clone().into(), extranonce1)
+                                .expect("failed to convert extended job set version rolling");
+                            sv1_mining_notify_msg.coin_base1 = coinbase1.to_vec().into();
+                            sv1_mining_notify_msg.coin_base2 = coinbase2.to_vec().into();
 
-                            let sv1_mining_notify_msg = handle_result!(tx_status_notify, res);
                             let message: json_rpc::Message = sv1_mining_notify_msg.into();
                             handle_result!(tx_status_notify, Downstream::send_message_downstream(downstream.clone(), message).await);
                         },

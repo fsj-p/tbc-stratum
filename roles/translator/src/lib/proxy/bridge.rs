@@ -347,7 +347,7 @@ impl Bridge {
                     .map_err(|_| PoisonLock)?
                     .expect("Failed to get channel-specific extended extranonce");
                 let notify = crate::proxy::next_mining_notify::create_notify(
-                    extranonce_prefix.to_vec(),
+                    extranonce_prefix.len(),
                     sv2_set_new_prev_hash.clone(),
                     job,
                     true,
@@ -453,7 +453,7 @@ impl Bridge {
                 .map_err(|_| PoisonLock)?
                 .expect("Failed to get channel-specific extended extranonce");
             let notify = crate::proxy::next_mining_notify::create_notify(
-                extranonce_prefix.to_vec(),
+                extranonce_prefix.len(),
                 last_p_hash,
                 sv2_new_extended_mining_job.clone(),
                 false,

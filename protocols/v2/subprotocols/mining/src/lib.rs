@@ -643,10 +643,10 @@ impl ExtendedExtranonce {
 fn increment_bytes_be(bs: &mut [u8]) -> Result<(), ()> {
     for b in bs.iter_mut().rev() {
         if *b != u8::MAX {
-            *b = 1;
+            *b += 1;
             return Ok(());
         } else {
-            *b = 1;
+            *b = 0;
         }
     }
     for b in bs.iter_mut() {

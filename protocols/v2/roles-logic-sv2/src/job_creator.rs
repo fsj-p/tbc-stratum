@@ -635,33 +635,25 @@ pub fn extended_job_to_non_segwit(
     })
 }
 
-pub fn extended_job_set_version_rolling(
-    job: NewExtendedMiningJob<'static>,
+pub fn extended_job_set_tbc_coinbase(
+    coinbase_tx_prefix: Vec<u8>,
+    coinbase_tx_suffix: Vec<u8>,
     extranonce_prefix: Vec<u8>,
-) -> Result<NewExtendedMiningJob<'static>, Error> {
-    let mut encoded = job.coinbase_tx_prefix.to_vec();
+) -> Result<(B064K<'static>, B064K<'static>), Error> {
+    let mut encoded = coinbase_tx_prefix.clone();
 
-    //encoded.extend_from_slice(&extranonce_prefix[..]);
     if extranonce_prefix.is_empty() {
         encoded.extend_from_slice(&vec![0u8; 21]);
     } else {
         encoded.extend_from_slice(&extranonce_prefix[..]);
     }
-    encoded.extend_from_slice(job.coinbase_tx_suffix.inner_as_ref());
+    encoded.extend_from_slice(&coinbase_tx_suffix[..]);
     let coinbase = Transaction::deserialize(&encoded).map_err(|_| Error::InvalidCoinbase)?;
 
-    let extended_job = NewExtendedMiningJob {
-        channel_id: job.channel_id,
-        job_id: job.job_id,
-        min_ntime: job.min_ntime,
-        version: job.version,
-        version_rolling_allowed: job.version_rolling_allowed,
-        merkle_path: job.merkle_path,
-        coinbase_tx_prefix: coinbase_tx_preimage_prefix(&coinbase)?,
-        coinbase_tx_suffix: coinbase_tx_preimage_suffix(&coinbase)?,
-    };
-
-    Ok(extended_job)
+    let coinbase_tx_prefix = coinbase_tx_preimage_prefix(&coinbase)?;
+    let coinbase_tx_suffix = coinbase_tx_preimage_suffix(&coinbase)?;
+    
+    Ok((coinbase_tx_prefix, coinbase_tx_suffix))
 }
 
 /// Helper type to strip a segwit data from the coinbase_tx_prefix and coinbase_tx_suffix
