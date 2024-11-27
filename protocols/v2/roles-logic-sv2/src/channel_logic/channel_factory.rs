@@ -863,21 +863,10 @@ impl ChannelFactory {
                 print_hash.to_vec().to_hex()
             );
 
-            // let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
-            //     .concat()
-            //     .to_vec();
-            let coinbase = crate::utils::splicing_coinbase_vec(coinbase_tx_prefix, coinbase_tx_suffix, &extranonce);
-            let coinbase = match coinbase {
-                Some(vec) => vec,
-                None => {
-                    error!("ERROR: splicing_coinbase_vec returned None");
-                    return Err(Error::InvalidCoinbase);
-                }
-            };
-            let hex_string: String = coinbase.iter()
-                .map(|byte| format!("{:02x}", byte))
-                .collect();
-            info!("Coinbase in hex: {}", hex_string);
+            let coinbase = [coinbase_tx_prefix, &extranonce[..], coinbase_tx_suffix]
+                .concat()
+                .to_vec();
+
             match self.kind {
                 ExtendedChannelKind::Proxy { .. } | ExtendedChannelKind::ProxyJd { .. } => {
                     let upstream_extranonce_space = self.extranonces.get_range0_len();

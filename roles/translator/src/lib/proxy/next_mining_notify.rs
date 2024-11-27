@@ -21,7 +21,7 @@ pub fn create_notify(
     // TODO 21 must be changed!
     let mut extranonce_prefix_len = extranonce_prefix_len;
     if extranonce_prefix_len == 0 {
-        extranonce_prefix_len = 21;
+        extranonce_prefix_len = 24;
     }
     let new_job = extended_job_to_non_segwit(new_job, extranonce_prefix_len)
         .expect("failed to convert extended job to non segwit");

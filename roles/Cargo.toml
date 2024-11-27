@@ -18,6 +18,7 @@ resolver="2"
 
 members = [
     "pool",
+    "mining-proxy",
     "test-utils/mining-device",
     "test-utils/sv1-mining-device",
     "translator",

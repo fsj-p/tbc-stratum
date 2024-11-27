@@ -206,7 +206,6 @@ fn new_extended_job(
     version_rolling_allowed: bool,
     extranonce_len: u8,
 ) -> Result<NewExtendedMiningJob<'static>, Error> {
-    let extranonce_len = 21;
     let value_remaining = match new_template.coinbase_tx_value_remaining.checked_mul(1) {
         //check that value_remaining is updated by TP
         Some(result) => result,
@@ -354,11 +353,14 @@ fn coinbase_tx_prefix(
 fn coinbase_tx_preimage_prefix(coinbase: &Transaction) -> Result<B064K<'static>, errors::Error> {
     let mut encoded: Vec<u8> = Vec::new();
     coinbase.version.consensus_encode(&mut encoded).expect("encoding error");
+    coinbase.lock_time.consensus_encode(&mut encoded).expect("encoding error");
+    (coinbase.input.len() as u32).consensus_encode(&mut encoded).expect("encoding error");
+    (coinbase.output.len() as u32).consensus_encode(&mut encoded).expect("encoding error");
     
-    // 只保留第一个字节
-    let single_byte = encoded.get(0).cloned().unwrap_or(0);
-    let encoded = vec![single_byte];
-    
+    let (input_hash, scripts_hash) = coinbase.input_and_scripts_hash();
+    encoded.extend_from_slice(&input_hash[..]);
+    encoded.extend_from_slice(&scripts_hash[..]);
+
     encoded.try_into().map_err(Error::BinarySv2Error)
 }
 
@@ -392,14 +394,6 @@ fn coinbase_tx_suffix(
 
 fn coinbase_tx_preimage_suffix(coinbase: &Transaction) -> Result<B064K<'static>, errors::Error> {
     let mut encoded: Vec<u8> = Vec::new();
-
-    coinbase.lock_time.consensus_encode(&mut encoded).expect("encoding error");
-    (coinbase.input.len() as u32).consensus_encode(&mut encoded).expect("encoding error");
-    (coinbase.output.len() as u32).consensus_encode(&mut encoded).expect("encoding error");
-    
-    let (input_hash, scripts_hash) = coinbase.input_and_scripts_hash();
-    encoded.extend_from_slice(&input_hash[..]);
-    encoded.extend_from_slice(&scripts_hash[..]);
 
     let output_hash = coinbase.output_hash();
     encoded.extend_from_slice(&output_hash[..]);

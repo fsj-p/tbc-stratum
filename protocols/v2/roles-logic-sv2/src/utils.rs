@@ -30,7 +30,7 @@ use stratum_common::{
         PublicKey, Script, Transaction, XOnlyPublicKey,
     },
 };
-use tracing::error;
+use tracing::{error, info};
 
 use crate::errors::Error;
 
@@ -131,26 +131,10 @@ pub fn splicing_coinbase_vec(
     extranonce: &[u8],
 )->Option<Vec<u8>>{
     // 创建一个新的 Vec 来存储修改后的 coinbase
-    let mut coinbase = Vec::with_capacity(coinbase_tx_prefix.len() - 3 + coinbase_tx_suffix.len() + extranonce.len());
+    let mut coinbase = Vec::with_capacity(coinbase_tx_prefix.len() + coinbase_tx_suffix.len() + extranonce.len());
 
-    // 只保留 coinbase_tx_prefix 的第一个字节 [10]
-    if !coinbase_tx_prefix.is_empty() && coinbase_tx_prefix.len() >= 4 {
-        coinbase.push(coinbase_tx_prefix[0]); // 保留第一个字节 [10]
-    }
-
-    if !extranonce.is_empty() && extranonce.len() >= 3 {
-        let extranonce_trimmed = &extranonce[extranonce.len() - 3..extranonce.len()];
-        coinbase.extend_from_slice(extranonce_trimmed);
-    }
-    // 追加 coinbase_tx_prefix 中剩下的部分，跳过 [10, 0, 0, 0] 的后三个 0
-    if coinbase_tx_prefix.len() > 4 {
-        coinbase.extend_from_slice(&coinbase_tx_prefix[4..]);
-    }
-    if !extranonce.is_empty() && extranonce.len() >= 3 {
-        let extranonce_trimmed = &extranonce[..extranonce.len() - 3];
-        coinbase.extend_from_slice(extranonce_trimmed);
-    }
-
+    coinbase.extend_from_slice(coinbase_tx_prefix);
+    coinbase.extend_from_slice(extranonce);
     coinbase.extend_from_slice(coinbase_tx_suffix);
     Some(coinbase)
 }
