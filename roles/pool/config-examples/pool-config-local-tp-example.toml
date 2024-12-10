@@ -12,7 +12,7 @@ listen_address = "0.0.0.0:34254"
 coinbase_outputs = [
     #{ output_script_type = "P2PK", output_script_value = "0372c47307e5b75ce365daf835f226d246c5a7a92fe24395018d5552123354f086" },
     { output_script_type = "P2PKH", output_script_value = "1HQbjAs7CQAKeV3FQEUGuepBfR2pJDzUjK" },
-    { output_script_type = "P2PKH", output_script_value = "0372c47307e5b75ce365daf835f226d246c5a7a92fe24395018d5552123354f086" },
+    { output_script_type = "P2PKH", output_script_value = "1FJ9TyiMbLqNyAVMkFhxb7kUMWngZiTRmB" },
     #{ output_script_type = "P2SH", output_script_value = "00142ef89234bc95136eb9e6fee9d32722ebd8c1f0ab" },
     #{ output_script_type = "P2WSH", output_script_value = "00142ef89234bc95136eb9e6fee9d32722ebd8c1f0ab" },
     #{ output_script_type = "P2WPKH", output_script_value = "036adc3bdf21e6f9a0f0fb0066bf517e5b7909ed1563d6958a10993849a7554075" },
