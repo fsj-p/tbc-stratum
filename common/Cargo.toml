@@ -7,4 +7,4 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/stratum-mining/stratum"
 
 [dependencies]
-bitcoin = { path = "/home/nemo/projects/relyOn/rust-turingbitchain", optional = true }
+bitcoin = { git = "ssh://git@github.com/LoongYearMeta/rust-turingbitchain.git", branch = "main", optional = true }
