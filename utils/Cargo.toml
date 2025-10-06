@@ -20,9 +20,9 @@ members = [
     "buffer",
     "error-handling",
     "key-utils",
-    "bip32-key-derivation", 
     "rpc"]
 
 exclude = [
     "message-generator",
+    "bip32-key-derivation",
 ]
